@@ -1808,15 +1808,6 @@ static int mkdir_mondata_all(struct kernfs_node *parent_kn,
 			     struct rdtgroup *prgrp,
 			     struct kernfs_node **mon_data_kn);
 
-/*
- * Define the hooks for Cache Pseudo-Locking to use within rdt_mount().
- * These are no-ops provided for the new kernfs changes to use as a
- * baseline in preparation for a conflict-free merge between it
- * (kernfs changes) and the Cache Pseudo-Locking enabling.
- */
-#define rdt_pseudo_lock_init() 0
-#define rdt_pseudo_lock_release() do { } while (0)
-
 static struct dentry *rdt_mount(struct file_system_type *fs_type,
 				int flags, const char *unused_dev_name,
 				void *data)
@@ -2076,6 +2067,7 @@ static void rdt_kill_sb(struct super_block *sb)
 		reset_all_ctrls(r);
 	cdp_disable_all();
 	rmdir_all_sub();
+	rdt_pseudo_lock_release();
 	rdtgroup_default.mode = RDT_MODE_SHAREABLE;
 	static_branch_disable_cpuslocked(&rdt_alloc_enable_key);
 	static_branch_disable_cpuslocked(&rdt_mon_enable_key);
