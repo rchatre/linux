@@ -415,7 +415,11 @@ static int pseudo_lock_fn(void *_rdtgrp)
 	struct rdtgroup *rdtgrp = _rdtgrp;
 	struct pseudo_lock_region *plr = rdtgrp->plr;
 	u32 rmid_p, closid_p;
+#ifdef CONFIG_X86_64
 	u64 i;
+#else
+	u32 i;
+#endif
 #ifdef CONFIG_KASAN
 	/*
 	 * The registers used for local register variables are also used
@@ -870,7 +874,11 @@ static int measure_cycles_lat_fn(void *_plr)
 {
 	struct pseudo_lock_region *plr = _plr;
 	u64 start, end;
+#ifdef CONFIG_X86_64
 	u64 i;
+#else
+	u32 i;
+#endif
 #ifdef CONFIG_KASAN
 	/*
 	 * The registers used for local register variables are also used
@@ -924,7 +932,11 @@ static int measure_cycles_perf_fn(void *_plr)
 	struct pseudo_lock_region *plr = _plr;
 	unsigned long long l2_hits, l2_miss;
 	u64 l2_hit_bits, l2_miss_bits;
+#ifdef CONFIG_X86_64
 	u64 i;
+#else
+	u32 i;
+#endif
 #ifdef CONFIG_KASAN
 	/*
 	 * The registers used for local register variables are also used
