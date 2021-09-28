@@ -714,9 +714,11 @@ static bool __init sgx_page_cache_init(void)
 			spin_lock_init(&sgx_numa_nodes[nid].lock);
 			INIT_LIST_HEAD(&sgx_numa_nodes[nid].free_page_list);
 			node_set(nid, sgx_numa_mask);
+			sgx_numa_nodes[nid].size = 0;
 		}
 
 		sgx_epc_sections[i].node =  &sgx_numa_nodes[nid];
+		sgx_numa_nodes[nid].size += size;
 
 		sgx_nr_epc_sections++;
 	}
@@ -790,6 +792,87 @@ int sgx_set_attribute(unsigned long *allowed_attributes,
 }
 EXPORT_SYMBOL_GPL(sgx_set_attribute);
 
+#ifdef CONFIG_NUMA
+static void sgx_numa_exit(void)
+{
+	int nid;
+
+	for (nid = 0; nid < num_possible_nodes(); nid++) {
+		if (!sgx_numa_nodes[nid].kobj)
+			continue;
+
+		kobject_put(sgx_numa_nodes[nid].kobj);
+	}
+}
+
+#define SGX_NODE_ATTR_RO(_name) \
+	static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
+
+static ssize_t memory_size_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	unsigned long size = 0;
+	int nid;
+
+	for (nid = 0; nid < num_possible_nodes(); nid++) {
+		if (kobj == sgx_numa_nodes[nid].kobj) {
+			size = sgx_numa_nodes[nid].size;
+			break;
+		}
+	}
+
+	return sysfs_emit(buf, "%lu\n", size);
+}
+SGX_NODE_ATTR_RO(memory_size);
+
+static struct attribute *sgx_node_attrs[] = {
+	&memory_size_attr.attr,
+	NULL,
+};
+
+static const struct attribute_group sgx_node_attr_group = {
+	.attrs = sgx_node_attrs,
+};
+
+static bool sgx_numa_init(void)
+{
+	struct sgx_numa_node *node;
+	struct device *dev;
+	int nid;
+	int ret;
+
+	for (nid = 0; nid < num_possible_nodes(); nid++) {
+		if (!sgx_numa_nodes[nid].size)
+			continue;
+
+		node = &sgx_numa_nodes[nid];
+		dev = &node_devices[nid]->dev;
+
+		node->kobj = kobject_create_and_add("sgx", &dev->kobj);
+		if (!node->kobj) {
+			sgx_numa_exit();
+			return false;
+		}
+
+		ret = sysfs_create_group(node->kobj, &sgx_node_attr_group);
+		if (ret) {
+			sgx_numa_exit();
+			return false;
+		}
+	}
+
+	return true;
+}
+#else
+static inline void sgx_numa_exit(void)
+{
+}
+
+static inline bool sgx_numa_init(void)
+{
+	return true;
+}
+#endif /* CONFIG_NUMA */
+
 static int __init sgx_init(void)
 {
 	int ret;
@@ -804,6 +887,11 @@ static int __init sgx_init(void)
 	if (!sgx_page_reclaimer_init()) {
 		ret = -ENOMEM;
 		goto err_reclaimer;
+	}
+
+	if (!sgx_numa_init()) {
+		ret = -ENOMEM;
+		goto err_numa_nodes;
 	}
 
 	ret = misc_register(&sgx_dev_provision);
@@ -829,6 +917,9 @@ err_driver:
 	misc_deregister(&sgx_dev_provision);
 
 err_provision:
+	sgx_numa_exit();
+
+err_numa_nodes:
 	kthread_stop(ksgxd_tsk);
 
 err_reclaimer:

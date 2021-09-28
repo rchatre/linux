@@ -39,6 +39,8 @@ struct sgx_epc_page {
  */
 struct sgx_numa_node {
 	struct list_head free_page_list;
+	struct kobject *kobj;
+	unsigned long size;
 	spinlock_t lock;
 };
 

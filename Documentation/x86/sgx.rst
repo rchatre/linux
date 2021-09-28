@@ -250,3 +250,17 @@ user wants to deploy SGX applications both on the host and in guests
 on the same machine, the user should reserve enough EPC (by taking out
 total virtual EPC size of all SGX VMs from the physical EPC size) for
 host SGX applications so they can run with acceptable performance.
+
+Per NUMA node SGX attributes
+============================
+
+NUMA nodes devices expose SGX specific attributes in the following path:
+
+	/sys/devices/system/node/node[0-9]*/sgx/
+
+Attributes
+----------
+
+memory_size
+                Total available physical SGX memory, also known as Enclave
+                Page Cache (EPC), in bytes.
