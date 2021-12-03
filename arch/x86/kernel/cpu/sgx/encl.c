@@ -167,7 +167,15 @@ static vm_fault_t sgx_encl_eaug_page(struct vm_area_struct *vma,
 	 */
 	prot = PROT_READ | PROT_WRITE;
 	encl_page->vm_run_prot_bits = calc_vm_prot_bits(prot, 0);
-	encl_page->vm_max_prot_bits = encl_page->vm_run_prot_bits;
+
+	/*
+	 * FIXME: Workaround to support RWX of dynamically added
+	 * pages. This is a temporary workaround provided for those needing
+	 * these capabilities until palatable user space policy
+	 * integration can be agreed upon.
+	 */
+	prot = PROT_READ | PROT_WRITE | PROT_EXEC;
+	encl_page->vm_max_prot_bits = calc_vm_prot_bits(prot, 0);
 
 	epc_page = sgx_alloc_epc_page(encl_page, true);
 	if (IS_ERR(epc_page)) {
